@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IO Linker</title>
+</head>
+<body>
+<script>
+    // --- CONFIGURATION ---
+    const IFTTT_KEY = "YOUR_IFTTT_KEY_HERE"; // REPLACE THIS
+    // ---------------------
+
+    function handleAutomation(data) {
+        try {
+            const params = JSON.parse(data);
+            const target = params.target; // 'ifttt' or 'shortcuts'
+            const name = params.name;     // Event Name or Shortcut Name
+            const payload = params.payload || "";
+
+            if (target === 'ifttt') {
+                // Trigger IFTTT Webhook
+                const url = `https://ifttt.com{name}/with/key/${IFTTT_KEY}`;
+                // Note: In a strict sandbox, fetch might be blocked. 
+                // If so, we use the Image trick or window.open as a fallback.
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ value1: payload })
+                }).then(() => {
+                    document.body.innerText = `✅ IFTTT Event '${name}' fired.`;
+                }).catch(e => {
+                    // Fallback for strict CORS/Sandbox
+                    const img = new Image();
+                    img.src = url + `?value1=${encodeURIComponent(payload)}`;
+                    document.body.innerText = `✅ IFTTT fired via pixel beacon.`;
+                });
+
+            } else if (target === 'shortcuts') {
+                // Trigger Apple Shortcut via URL Scheme
+                // Format: shortcuts://run-shortcut?name=[Name]&input=[Input]
+                const safeName = encodeURIComponent(name);
+                const safeInput = encodeURIComponent(payload);
+                const deepLink = `shortcuts://run-shortcut?name=${safeName}&input=text&text=${safeInput}`;
+                
+                // Redirect to open the app
+                window.location.href = deepLink;
+                document.body.innerText = `🚀 Opening Shortcut: ${name}...`;
+            }
+
+        } catch (error) {
+            document.body.innerText = "Error Parsing: " + error.message;
+        }
+    }
+
+    // The app calls this function or injects data. 
+    // We simulate listening for the tool call logic if the app passes URL params:
+    // (This part depends on how the specific app version injects args to the WebView)
+    // For now, we assume the standard Agent Skills pattern where args are passed via URL hash or query.
+    const urlParams = new URLSearchParams(window.location.search);
+    const args = urlParams.get('args'); 
+    if(args) handleAutomation(args);
+    
+    // If the app uses a different injection method (like window.android or webkit), 
+    // that specific bridge code goes here.
+</script>
+</body>
+</html>
